@@ -15,9 +15,11 @@ export const databaseConfig: TypeOrmModuleOptions = {
   migrations: [__dirname + '/../migrations/**/*{.ts,.js}'],
   migrationsRun: false,
   extra: {
-    max: 100,
-    min: 10,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
+    // Connection pool settings (node-postgres/pg pool options)
+    max: parseInt(process.env.DB_POOL_MAX || '200', 10), // Maximum connections in pool
+    min: parseInt(process.env.DB_POOL_MIN || '20', 10), // Minimum connections to maintain
+    idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT || '30000', 10), // Close idle connections after 30s
+    connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT || '15000', 10), // Wait up to 15s for a connection
+    // AllowExitOnIdle: false, // Keep pool alive even when idle (default: false)
   },
 };

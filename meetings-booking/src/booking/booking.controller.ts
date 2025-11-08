@@ -43,6 +43,17 @@ export class BookingController {
       if (error instanceof BadRequestException) {
         throw error;
       }
+      // Log the actual error for debugging
+      console.error('Availability endpoint error:', error);
+      console.error('Query params:', query);
+      console.error('Error stack:', error.stack);
+      
+      // Return 500 for server errors, 400 for client errors
+      if (error.message && error.message.includes('Failed to query')) {
+        throw new BadRequestException(
+          `Database error: ${error.message}`,
+        );
+      }
       throw new BadRequestException(
         `Failed to get availability: ${error.message}`,
       );
