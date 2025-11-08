@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty, IsDateString, IsOptional, ValidateIf } from 'class-validator';
 
 export class CreateBookingDto {
   @IsString()
@@ -12,4 +12,9 @@ export class CreateBookingDto {
   @IsDateString()
   @IsNotEmpty()
   end_time: string;
+
+  @IsString()
+  @IsOptional()
+  @ValidateIf((o) => o.recurrence_rule !== undefined && o.recurrence_rule !== null)
+  recurrence_rule?: string;
 }
