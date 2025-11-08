@@ -50,6 +50,7 @@ export class RecurrenceService {
       freq: Frequency.YEARLY,
     };
     const parts = rruleString.split(';');
+    let freqFound = false;
 
     for (const part of parts) {
       const [key, value] = part.split('=');
@@ -58,6 +59,7 @@ export class RecurrenceService {
       switch (upperKey) {
         case 'FREQ':
           params.freq = this.mapFrequency(value);
+          freqFound = true;
           break;
         case 'COUNT':
           params.count = parseInt(value, 10);
@@ -71,7 +73,7 @@ export class RecurrenceService {
       }
     }
 
-    if (!params.freq) {
+    if (!freqFound) {
       throw new Error('FREQ parameter is required in RRULE');
     }
 
