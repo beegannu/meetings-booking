@@ -1,4 +1,6 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { BookingSeries } from '../booking/entities/booking-series.entity';
+import { BookingInstance } from '../booking/entities/booking-instance.entity';
 
 export const databaseConfig: TypeOrmModuleOptions = {
   type: 'postgres',
@@ -7,7 +9,7 @@ export const databaseConfig: TypeOrmModuleOptions = {
   username: process.env.DB_USERNAME ?? 'postgres',
   password: process.env.DB_PASSWORD ?? 'postgres',
   database: process.env.DB_DATABASE ?? 'meetings_booking',
-  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+  entities: [BookingSeries, BookingInstance],
   synchronize: process.env.DB_SYNCHRONIZE === 'true', // false in production
   logging: process.env.DB_LOGGING === 'true',
   migrations: [__dirname + '/../migrations/**/*{.ts,.js}'],
