@@ -10,14 +10,9 @@ export interface RecurrenceConfig {
 
 @Injectable()
 export class RecurrenceService {
-  /**
-   * Parse RRULE string into Date instances
-   * Supports: FREQ=DAILY|WEEKLY|MONTHLY, COUNT, INTERVAL, UNTIL
-   * Infinite recurrence: No COUNT or UNTIL
-   */
   parseRRule(rruleString: string, startDate: Date, endDate: Date): Date[] {
     try {
-      // Parse RRULE string (format: RRULE:FREQ=WEEKLY;COUNT=10)
+      // example: RRULE:FREQ=WEEKLY;COUNT=10
       const ruleStr = rruleString.replace(/^RRULE:/i, '');
       const params = this.parseRRuleParams(ruleStr);
 
@@ -37,9 +32,7 @@ export class RecurrenceService {
       }
 
       const rule = new RRule(options);
-
-      // For infinite recurrence, we'll generate instances for a reasonable future period
-      // (e.g., next 2 years) unless UNTIL is specified
+      // For infite, taking a max of 2 years
       if (!params.count && !params.until) {
         const twoYearsFromNow = new Date();
         twoYearsFromNow.setFullYear(twoYearsFromNow.getFullYear() + 2);
@@ -52,9 +45,6 @@ export class RecurrenceService {
     }
   }
 
-  /**
-   * Parse RRULE parameters from string
-   */
   private parseRRuleParams(rruleString: string): RecurrenceConfig {
     const params: RecurrenceConfig = {
       freq: Frequency.YEARLY,
@@ -88,9 +78,7 @@ export class RecurrenceService {
     return params;
   }
 
-  /**
-   * Map frequency string to RRule Frequency enum
-   */
+
   private mapFrequency(freq: string): Frequency {
     const upperFreq = freq.toUpperCase();
     switch (upperFreq) {
@@ -107,9 +95,6 @@ export class RecurrenceService {
     }
   }
 
-  /**
-   * Check if RRULE represents infinite recurrence
-   */
   isInfiniteRecurrence(rruleString: string): boolean {
     try {
       const ruleStr = rruleString.replace(/^RRULE:/i, '');
