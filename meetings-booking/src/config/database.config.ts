@@ -14,4 +14,13 @@ export const databaseConfig: TypeOrmModuleOptions = {
   logging: process.env.DB_LOGGING === 'true',
   migrations: [__dirname + '/../migrations/**/*{.ts,.js}'],
   migrationsRun: false,
+  extra: {
+    max: 20,
+    min: 5,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+    acquireTimeoutMillis: 60000,
+    evict: 1000,
+  },
+  poolSize: 20,
 };

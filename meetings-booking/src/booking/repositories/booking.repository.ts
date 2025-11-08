@@ -147,64 +147,77 @@ export class BookingRepository {
     startDate: Date,
     endDate: Date,
   ): Promise<TimeSlot[]> {
-    const bookedSlots: TimeSlot[] = [];
+    try {
+      const bookedSlots: TimeSlot[] = [];
 
-    const instances = await this.instanceRepository
-      .createQueryBuilder('instance')
-      .where('instance.resource_id = :resourceId', { resourceId })
-      .andWhere('instance.is_exception = :isException', { isException: false })
-      .andWhere('instance.start_time < :endDate', { endDate })
-      .andWhere('instance.end_time > :startDate', { startDate })
-      .orderBy('instance.start_time', 'ASC')
-      .getMany();
+      if (!resourceId || !startDate || !endDate) {
+        throw new Error('Invalid parameters for findBookedSlots');
+      }
 
-    bookedSlots.push(
-      ...instances.map((instance) => ({
-        start: instance.start_time,
-        end: instance.end_time,
-      })),
-    );
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        throw new Error('Invalid date parameters');
+      }
 
-    const infiniteSeries = await this.seriesRepository
-      .createQueryBuilder('series')
-      .where('series.resource_id = :resourceId', { resourceId })
-      .andWhere('series.recurrence_rule IS NOT NULL')
-      .andWhere(
-        "(series.recurrence_rule NOT LIKE '%COUNT%' AND series.recurrence_rule NOT LIKE '%UNTIL%')",
-      )
-      .getMany();
+      const instances = await this.instanceRepository
+        .createQueryBuilder('instance')
+        .where('instance.resource_id = :resourceId', { resourceId })
+        .andWhere('instance.is_exception = :isException', { isException: false })
+        .andWhere('instance.start_time < :endDate', { endDate })
+        .andWhere('instance.end_time > :startDate', { startDate })
+        .orderBy('instance.start_time', 'ASC')
+        .getMany();
 
-    for (const series of infiniteSeries) {
-      const generatedInstances = this.generateRecurringInstances(
-        series,
-        startDate,
-        endDate,
+      bookedSlots.push(
+        ...instances.map((instance) => ({
+          start: instance.start_time,
+          end: instance.end_time,
+        })),
       );
 
-      for (const instance of generatedInstances) {
-        const isException = await this.isInstanceException(
-          series.id,
-          instance.start,
+      const infiniteSeries = await this.seriesRepository
+        .createQueryBuilder('series')
+        .where('series.resource_id = :resourceId', { resourceId })
+        .andWhere('series.recurrence_rule IS NOT NULL')
+        .andWhere(
+          "(series.recurrence_rule NOT LIKE '%COUNT%' AND series.recurrence_rule NOT LIKE '%UNTIL%')",
+        )
+        .getMany();
+
+      for (const series of infiniteSeries) {
+        const generatedInstances = this.generateRecurringInstances(
+          series,
+          startDate,
+          endDate,
         );
 
-        if (!isException) {
-          bookedSlots.push(instance);
+        for (const instance of generatedInstances) {
+          const isException = await this.isInstanceException(
+            series.id,
+            instance.start,
+          );
+
+          if (!isException) {
+            bookedSlots.push(instance);
+          }
         }
       }
+
+      bookedSlots.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+      const uniqueSlots = Array.from(
+        new Map(
+          bookedSlots.map((slot) => [
+            `${slot.start.getTime()}-${slot.end.getTime()}`,
+            slot,
+          ]),
+        ).values(),
+      );
+
+      return uniqueSlots;
+    } catch (error) {
+      console.error('Error in findBookedSlots:', error);
+      throw error;
     }
-
-    bookedSlots.sort((a, b) => a.start.getTime() - b.start.getTime());
-
-    const uniqueSlots = Array.from(
-      new Map(
-        bookedSlots.map((slot) => [
-          `${slot.start.getTime()}-${slot.end.getTime()}`,
-          slot,
-        ]),
-      ).values(),
-    );
-
-    return uniqueSlots;
   }
 
   async createBookingSeries(
