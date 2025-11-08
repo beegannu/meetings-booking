@@ -40,15 +40,52 @@ function generateDate(offsetDays = 0, offsetHours = 0) {
 }
 
 function encodeURIComponent(str) {
-  // k6-compatible URL encoding function
-  return str.replace(/[^A-Za-z0-9\-_.!~*'()]/g, (c) => {
-    const code = c.charCodeAt(0);
-    if (code < 128) {
-      return '%' + code.toString(16).toUpperCase().padStart(2, '0');
+  // k6-compatible URL encoding - manually encode all special characters
+  let encoded = '';
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    const code = char.charCodeAt(0);
+    // Unreserved characters: A-Z a-z 0-9 - _ . ! ~ * ' ( )
+    if (
+      (code >= 65 && code <= 90) || // A-Z
+      (code >= 97 && code <= 122) || // a-z
+      (code >= 48 && code <= 57) || // 0-9
+      code === 45 || // -
+      code === 95 || // _
+      code === 46 || // .
+      code === 33 || // !
+      code === 126 || // ~
+      code === 42 || // *
+      code === 39 || // '
+      code === 40 || // (
+      code === 41 // )
+    ) {
+      encoded += char;
+    } else {
+      // Encode as UTF-8 bytes
+      if (code < 128) {
+        encoded += '%' + code.toString(16).toUpperCase().padStart(2, '0');
+      } else if (code < 2048) {
+        encoded +=
+          '%' +
+          ((code >> 6) | 192).toString(16).toUpperCase().padStart(2, '0') +
+          '%' +
+          ((code & 63) | 128).toString(16).toUpperCase().padStart(2, '0');
+      } else {
+        encoded +=
+          '%' +
+          ((code >> 12) | 224).toString(16).toUpperCase().padStart(2, '0') +
+          '%' +
+          (((code >> 6) & 63) | 128)
+            .toString(16)
+            .toUpperCase()
+            .padStart(2, '0') +
+          '%' +
+          ((code & 63) | 128).toString(16).toUpperCase().padStart(2, '0');
+      }
     }
-    // For multi-byte characters, encode each byte
-    return encodeURI(c);
-  });
+  }
+  return encoded;
 }
 
 function buildQueryString(params) {

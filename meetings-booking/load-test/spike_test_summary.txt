@@ -1,0 +1,73 @@
+THRESHOLDS
+
+    availability_response_time
+    ✗ 'p(95)<600' p(95)=10012
+    ✗ 'p(99)<1200' p(99)=10227.32
+
+    booking_response_time
+    ✗ 'p(95)<800' p(95)=11894
+    ✗ 'p(99)<1500' p(99)=21816.77
+
+    db_operation_time
+    ✗ 'p(95)<500' p(95)=11289.2
+    ✗ 'p(99)<1000' p(99)=19171.76
+
+    http_req_duration
+    ✗ 'p(95)<1000' p(95)=11.28s
+    ✗ 'p(99)<2000' p(99)=19.17s
+
+    http_req_failed
+    ✗ 'rate<0.05' rate=60.46%
+
+    success
+    ✗ 'rate>0.90' rate=39.00%
+
+
+  █ TOTAL RESULTS
+
+    checks_total.......: 10363  217.34061/s
+    checks_succeeded...: 65.93% 6833 out of 10363
+    checks_failed......: 34.06% 3530 out of 10363
+
+    ✗ single booking created
+      ↳  35% — ✓ 621 / ✗ 1138
+    ✓ single booking response time recorded
+    ✗ recurring booking created
+      ↳  43% — ✓ 599 / ✗ 770
+    ✓ recurring booking response time recorded
+    ✗ availability check succeeded
+      ↳  40% — ✓ 558 / ✗ 811
+    ✓ availability response time recorded
+    ✗ availability has valid response
+      ↳  40% — ✓ 558 / ✗ 811
+
+    CUSTOM
+    availability_errors............: 811     17.0089/s
+    availability_response_time.....: avg=5128.441198 min=2      med=5628     max=10576  p(90)=9774.4  p(95)=10012   p(99)=10227.32 p(99.9)=10551.12
+    booking_response_time..........: avg=5287.396419 min=1      med=5387.5   max=35152  p(90)=10890.9 p(95)=11894   p(99)=21816.77 p(99.9)=28367.165
+    conflicts......................: 100.00% 93 out of 93
+    db_operation_time..............: avg=5239.006449 min=1      med=5485     max=35152  p(90)=10288.2 p(95)=11289.2 p(99)=19171.76 p(99.9)=27811.224
+    success........................: 39.00%  1220 out of 3128
+    total_bookings.................: 3128    65.602763/s
+    total_errors...................: 2719    57.024908/s
+
+    HTTP
+    http_req_duration..............: avg=5.21s       min=0s     med=5.47s    max=35.15s p(90)=10.25s  p(95)=11.28s  p(99)=19.17s   p(99.9)=27.81s
+      { expected_response:true }...: avg=4.36s       min=1.63ms med=915.64ms max=24.36s p(90)=11.05s  p(95)=11.82s  p(99)=14.83s   p(99.9)=22.82s
+    http_req_failed................: 60.46%  2719 out of 4497
+    http_reqs......................: 4497    94.314458/s
+
+    EXECUTION
+    iteration_duration.............: avg=13.84s      min=1.99ms med=17.53s   max=42.14s p(90)=26.33s  p(95)=27.44s  p(99)=31.26s   p(99.9)=41.12s
+    iterations.....................: 1759    36.891068/s
+    vus............................: 118     min=9            max=800
+    vus_max........................: 800     min=800          max=800
+
+    NETWORK
+
+
+
+running (0m47.7s), 000/800 VUs, 1759 complete and 0 interrupted iterations   
+default ✓ [======================================] 000/800 VUs  30s
+ERRO[0048] thresholds on metrics 'availability_response_time, booking_response_time, db_operation_time, http_req_duration, http_req_failed, success' have 
+been crossed                                                         
