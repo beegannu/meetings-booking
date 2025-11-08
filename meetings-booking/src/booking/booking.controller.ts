@@ -7,10 +7,12 @@ import {
   ValidationPipe,
   Query,
   Get,
+  Delete,
 } from '@nestjs/common';
 import { BookingService } from './services/booking.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { AvailabilityQueryDto } from './dto/availability-query.dto';
+import { CancelExceptionDto } from './dto/cancel-exception.dto';
 
 
 @Controller('booking')
@@ -29,6 +31,15 @@ export class BookingController {
       query.resource_id,
       new Date(query.start_date),
       new Date(query.end_date),
+    );
+  }
+
+  @Delete('exceptions')
+  @HttpCode(HttpStatus.OK)
+  async cancelException(@Body(ValidationPipe) cancelDto: CancelExceptionDto) {
+    return await this.bookingService.cancelException(
+      cancelDto.booking_id,
+      new Date(cancelDto.instance_date),
     );
   }
 }

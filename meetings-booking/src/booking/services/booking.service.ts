@@ -1,6 +1,7 @@
 import { Booking } from '../entities/booking.entity';
 import { CreateBookingDto } from '../dto/create-booking.dto';
 import { v4 as uuidv4 } from 'uuid';
+import { BadRequestException } from '@nestjs/common';
 
 export class BookingService {
   private bookings: Map<string, Booking> = new Map();
@@ -126,5 +127,46 @@ export class BookingService {
       (booking.end_time >= startDate && booking.end_time <= endDate) ||
       (booking.start_time <= startDate && booking.end_time >= endDate)
     );
+  }
+
+  async cancelException(
+    parentBookingId: string,
+    instanceDate: Date,
+  ): Promise<any> {
+    // Find all bookings with this parent_booking_id
+    const seriesBookings = Array.from(this.bookings.values()).filter(
+      (b) => b.parent_booking_id === parentBookingId,
+    );
+
+    if (seriesBookings.length === 0) {
+      throw new BadRequestException('Recurring booking series not found');
+    }
+
+    // Find the specific instance to cancel
+    const instanceToCancel = seriesBookings.find((booking) => {
+      const bookingDate = new Date(booking.start_time);
+      bookingDate.setHours(0, 0, 0, 0);
+      const targetDate = new Date(instanceDate);
+      targetDate.setHours(0, 0, 0, 0);
+      return bookingDate.getTime() === targetDate.getTime();
+    });
+
+    if (!instanceToCancel) {
+      throw new BadRequestException(
+        'Instance not found in this recurring series',
+      );
+    }
+
+    // Mark as exception (cancelled)
+    instanceToCancel.is_exception = true;
+    instanceToCancel.updated_at = new Date();
+    this.bookings.set(instanceToCancel.id, instanceToCancel);
+
+    return {
+      message: 'Booking instance cancelled successfully',
+      booking_id: instanceToCancel.id,
+      parent_booking_id: parentBookingId,
+      cancelled_date: instanceToCancel.start_time.toISOString(),
+    };
   }
 }
