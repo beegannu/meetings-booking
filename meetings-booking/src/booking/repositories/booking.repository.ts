@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, Between } from 'typeorm';
+import { Repository, DataSource, Between, QueryRunner } from 'typeorm';
 import { BookingSeries } from '../entities/booking-series.entity';
 import { BookingInstance } from '../entities/booking-instance.entity';
 import { RecurrenceService } from '../services/recurrence.service';
@@ -147,64 +147,89 @@ export class BookingRepository {
     startDate: Date,
     endDate: Date,
   ): Promise<TimeSlot[]> {
-    const bookedSlots: TimeSlot[] = [];
+    try {
+      const bookedSlots: TimeSlot[] = [];
 
-    const instances = await this.instanceRepository
-      .createQueryBuilder('instance')
-      .where('instance.resource_id = :resourceId', { resourceId })
-      .andWhere('instance.is_exception = :isException', { isException: false })
-      .andWhere('instance.start_time < :endDate', { endDate })
-      .andWhere('instance.end_time > :startDate', { startDate })
-      .orderBy('instance.start_time', 'ASC')
-      .getMany();
+      if (!resourceId || !startDate || !endDate) {
+        throw new Error('Invalid parameters for findBookedSlots');
+      }
 
-    bookedSlots.push(
-      ...instances.map((instance) => ({
-        start: instance.start_time,
-        end: instance.end_time,
-      })),
-    );
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        throw new Error('Invalid date parameters');
+      }
 
-    const infiniteSeries = await this.seriesRepository
-      .createQueryBuilder('series')
-      .where('series.resource_id = :resourceId', { resourceId })
-      .andWhere('series.recurrence_rule IS NOT NULL')
-      .andWhere(
-        "(series.recurrence_rule NOT LIKE '%COUNT%' AND series.recurrence_rule NOT LIKE '%UNTIL%')",
-      )
-      .getMany();
+      let instances;
+      try {
+        instances = await this.instanceRepository
+          .createQueryBuilder('instance')
+          .where('instance.resource_id = :resourceId', { resourceId })
+          .andWhere('instance.is_exception = :isException', { isException: false })
+          .andWhere('instance.start_time < :endDate', { endDate })
+          .andWhere('instance.end_time > :startDate', { startDate })
+          .orderBy('instance.start_time', 'ASC')
+          .getMany();
+      } catch (dbError) {
+        console.error(`Database error in findBookedSlots (instances):`, dbError);
+        throw new Error(`Failed to query booked instances: ${dbError.message}`);
+      }
 
-    for (const series of infiniteSeries) {
-      const generatedInstances = this.generateRecurringInstances(
-        series,
-        startDate,
-        endDate,
+      bookedSlots.push(
+        ...instances.map((instance) => ({
+          start: instance.start_time,
+          end: instance.end_time,
+        })),
       );
 
-      for (const instance of generatedInstances) {
-        const isException = await this.isInstanceException(
-          series.id,
-          instance.start,
+      let infiniteSeries;
+      try {
+        infiniteSeries = await this.seriesRepository
+          .createQueryBuilder('series')
+          .where('series.resource_id = :resourceId', { resourceId })
+          .andWhere('series.recurrence_rule IS NOT NULL')
+          .andWhere(
+            "(series.recurrence_rule NOT LIKE '%COUNT%' AND series.recurrence_rule NOT LIKE '%UNTIL%')",
+          )
+          .getMany();
+      } catch (dbError) {
+        console.error(`Database error in findBookedSlots (infinite series):`, dbError);
+        throw new Error(`Failed to query infinite series: ${dbError.message}`);
+      }
+
+      for (const series of infiniteSeries) {
+        const generatedInstances = this.generateRecurringInstances(
+          series,
+          startDate,
+          endDate,
         );
 
-        if (!isException) {
-          bookedSlots.push(instance);
+        for (const instance of generatedInstances) {
+          const isException = await this.isInstanceException(
+            series.id,
+            instance.start,
+          );
+
+          if (!isException) {
+            bookedSlots.push(instance);
+          }
         }
       }
+
+      bookedSlots.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+      const uniqueSlots = Array.from(
+        new Map(
+          bookedSlots.map((slot) => [
+            `${slot.start.getTime()}-${slot.end.getTime()}`,
+            slot,
+          ]),
+        ).values(),
+      );
+
+      return uniqueSlots;
+    } catch (error) {
+      console.error('Error in findBookedSlots:', error);
+      throw error;
     }
-
-    bookedSlots.sort((a, b) => a.start.getTime() - b.start.getTime());
-
-    const uniqueSlots = Array.from(
-      new Map(
-        bookedSlots.map((slot) => [
-          `${slot.start.getTime()}-${slot.end.getTime()}`,
-          slot,
-        ]),
-      ).values(),
-    );
-
-    return uniqueSlots;
   }
 
   async createBookingSeries(
@@ -214,10 +239,30 @@ export class BookingRepository {
     recurrenceRule?: string,
   ): Promise<{ series: BookingSeries; instances: BookingInstance[] }> {
     const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+    let transactionStarted = false;
 
     try {
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+      transactionStarted = true;
+
+      const conflicts = await this.findConflictsWithLock(
+        queryRunner,
+        resourceId,
+        startTime,
+        endTime,
+        recurrenceRule,
+      );
+
+      if (conflicts.length > 0) {
+        if (transactionStarted) {
+          await queryRunner.rollbackTransaction();
+        }
+        throw new ConflictException(
+          `Booking conflicts with ${conflicts.length} existing booking(s)`,
+        );
+      }
+
       const series = queryRunner.manager.create(BookingSeries, {
         resource_id: resourceId,
         start_time: startTime,
@@ -273,14 +318,182 @@ export class BookingRepository {
       }
 
       await queryRunner.commitTransaction();
+      transactionStarted = false;
 
       return { series: savedSeries, instances };
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      if (transactionStarted) {
+        try {
+          await queryRunner.rollbackTransaction();
+        } catch (rollbackError) {
+          console.error('Error during transaction rollback:', rollbackError);
+        }
+      }
+      
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      
+      if (
+        error.code === '23505' ||
+        error.code === '23P01' ||
+        error.message?.includes('duplicate key') ||
+        error.message?.includes('violates unique constraint') ||
+        error.message?.includes('violates exclusion constraint') ||
+        error.message?.includes('exclusion constraint')
+      ) {
+        throw new ConflictException(
+          'Booking conflicts with existing booking (database constraint violation)',
+        );
+      }
+      
       throw error;
     } finally {
       await queryRunner.release();
     }
+  }
+
+  private async findConflictsWithLock(
+    queryRunner: QueryRunner,
+    resourceId: string,
+    startTime: Date,
+    endTime: Date,
+    recurrenceRule?: string,
+  ): Promise<ConflictInfo[]> {
+    const conflicts: ConflictInfo[] = [];
+
+    if (recurrenceRule) {
+      const duration = endTime.getTime() - startTime.getTime();
+      const occurrences = this.recurrenceService.parseRRule(
+        recurrenceRule,
+        startTime,
+        endTime,
+      );
+
+      for (const occurrenceStart of occurrences) {
+        const occurrenceEnd = new Date(occurrenceStart.getTime() + duration);
+        const occurrenceConflicts = await this.findConflictsForTimeRangeWithLock(
+          queryRunner,
+          resourceId,
+          occurrenceStart,
+          occurrenceEnd,
+        );
+        conflicts.push(...occurrenceConflicts);
+      }
+    } else {
+      const singleConflicts = await this.findConflictsForTimeRangeWithLock(
+        queryRunner,
+        resourceId,
+        startTime,
+        endTime,
+      );
+      conflicts.push(...singleConflicts);
+    }
+
+    const uniqueConflicts = Array.from(
+      new Map(
+        conflicts.map((c) => [
+          `${c.id}-${c.start_time.getTime()}-${c.end_time.getTime()}`,
+          c,
+        ]),
+      ).values(),
+    );
+
+    return uniqueConflicts;
+  }
+
+  private async findConflictsForTimeRangeWithLock(
+    queryRunner: QueryRunner,
+    resourceId: string,
+    startTime: Date,
+    endTime: Date,
+  ): Promise<ConflictInfo[]> {
+    const conflicts: ConflictInfo[] = [];
+
+    const instanceConflicts = await queryRunner.manager
+      .createQueryBuilder(BookingInstance, 'instance')
+      .setLock('pessimistic_write')
+      .where('instance.resource_id = :resourceId', { resourceId })
+      .andWhere('instance.is_exception = :isException', { isException: false })
+      .andWhere('instance.start_time < :endTime', { endTime })
+      .andWhere('instance.end_time > :startTime', { startTime })
+      .getMany();
+
+    conflicts.push(
+      ...instanceConflicts.map((instance) => ({
+        id: instance.id,
+        start_time: instance.start_time,
+        end_time: instance.end_time,
+        series_id: instance.series_id,
+      })),
+    );
+
+    const infiniteSeries = await queryRunner.manager
+      .createQueryBuilder(BookingSeries, 'series')
+      .setLock('pessimistic_read')
+      .where('series.resource_id = :resourceId', { resourceId })
+      .andWhere('series.recurrence_rule IS NOT NULL')
+      .andWhere(
+        "(series.recurrence_rule NOT LIKE '%COUNT%' AND series.recurrence_rule NOT LIKE '%UNTIL%')",
+      )
+      .getMany();
+
+    for (const series of infiniteSeries) {
+      const extendedStart = new Date(startTime);
+      extendedStart.setDate(extendedStart.getDate() - 7);
+      const extendedEnd = new Date(endTime);
+      extendedEnd.setDate(extendedEnd.getDate() + 7);
+
+      const generatedInstances = this.generateRecurringInstances(
+        series,
+        extendedStart,
+        extendedEnd,
+      );
+
+      for (const instance of generatedInstances) {
+        const isException = await this.isInstanceExceptionWithLock(
+          queryRunner,
+          series.id,
+          instance.start,
+        );
+
+        if (
+          !isException &&
+          this.isOverlapping(instance.start, instance.end, startTime, endTime)
+        ) {
+          conflicts.push({
+            id: series.id,
+            start_time: instance.start,
+            end_time: instance.end,
+            series_id: series.id,
+          });
+        }
+      }
+    }
+
+    return conflicts;
+  }
+
+  private async isInstanceExceptionWithLock(
+    queryRunner: QueryRunner,
+    seriesId: string,
+    instanceStartTime: Date,
+  ): Promise<boolean> {
+    const startOfDay = new Date(instanceStartTime);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(instanceStartTime);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const exception = await queryRunner.manager
+      .createQueryBuilder(BookingInstance, 'instance')
+      .setLock('pessimistic_read')
+      .where('instance.series_id = :seriesId', { seriesId })
+      .andWhere('instance.start_time >= :startOfDay', { startOfDay })
+      .andWhere('instance.start_time <= :endOfDay', { endOfDay })
+      .andWhere('instance.is_exception = :isException', { isException: true })
+      .getOne();
+
+    return !!exception;
   }
 
   async cancelException(

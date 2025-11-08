@@ -1,0 +1,72 @@
+THRESHOLDS
+
+    availability_response_time
+    ✗ 'p(95)<600' p(95)=1517.3
+    ✗ 'p(99)<1200' p(99)=3279.9
+
+    booking_response_time
+    ✗ 'p(95)<800' p(95)=5506.05
+    ✗ 'p(99)<1500' p(99)=8354.95
+
+    db_operation_time
+    ✗ 'p(95)<500' p(95)=4902
+    ✗ 'p(99)<1000' p(99)=7365.04
+
+    http_req_duration
+    ✗ 'p(95)<1000' p(95)=4.89s
+    ✗ 'p(99)<2000' p(99)=7.36s
+
+    http_req_failed
+    ✓ 'rate<0.05' rate=0.20%
+
+    success
+    ✓ 'rate>0.90' rate=99.79%
+
+
+  █ TOTAL RESULTS
+
+    checks_total.......: 17185  528.710533/s
+    checks_succeeded...: 99.88% 17165 out of 17185
+    checks_failed......: 0.11%  20 out of 17185
+
+    ✗ single booking created
+      ↳  99% — ✓ 2449 / ✗ 6
+    ✓ single booking response time recorded
+    ✗ recurring booking created
+      ↳  99% — ✓ 2451 / ✗ 4
+    ✓ recurring booking response time recorded
+    ✗ availability check succeeded
+      ↳  99% — ✓ 2450 / ✗ 5
+    ✓ availability response time recorded
+    ✗ availability has valid response
+      ↳  99% — ✓ 2450 / ✗ 5
+
+    CUSTOM
+    availability_errors............: 5       0.153829/s
+    availability_response_time.....: avg=607.001629  min=1       med=441   max=4843  p(90)=1203.6 p(95)=1517.3  p(99)=3279.9 
+ p(99.9)=4731.552
+    booking_response_time..........: avg=2389.481874 min=5       med=1948  max=13008 p(90)=4463.1 p(95)=5506.05 p(99)=8354.95 p(99.9)=11685.831
+    conflicts......................: 100.00% 571 out of 571
+    db_operation_time..............: avg=1795.321792 min=1       med=1319  max=13008 p(90)=4065   p(95)=4902    p(99)=7365.04 p(99.9)=11618.08
+    success........................: 99.79%  4900 out of 4910
+    total_bookings.................: 4910    151.060152/s
+    total_errors...................: 15      0.461487/s
+
+    HTTP
+    http_req_duration..............: avg=1.79s       min=1.51ms  med=1.31s max=13s   p(90)=4.06s  p(95)=4.89s   p(99)=7.36s  
+ p(99.9)=11.61s
+      { expected_response:true }...: avg=1.79s       min=1.51ms  med=1.31s max=13s   p(90)=4.06s  p(95)=4.89s   p(99)=7.27s  
+ p(99.9)=11.61s
+    http_req_failed................: 0.20%   15 out of 7365
+    http_reqs......................: 7365    226.590228/s
+
+    EXECUTION
+    iteration_duration.............: avg=5.89s       min=86.59ms med=6.02s max=15s   p(90)=8.99s  p(95)=11.77s  p(99)=13.68s 
+ p(99.9)=14.43s
+    iterations.....................: 2455    75.530076/s
+    vus............................: 145     min=9            max=800
+    vus_max........................: 800     min=800          max=800
+
+    NETWORK
+    data_received..................: 4.0 MB  124 kB/s
+    data_sent......................: 1.7 MB  53 kB/s

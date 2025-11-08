@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { CreateBookingDto } from '../dto/create-booking.dto';
 import { BookingRepository } from '../repositories/booking.repository';
 import { RecurrenceService } from './recurrence.service';
@@ -43,38 +47,6 @@ export class BookingService {
       }
     }
 
-    const conflicts = await this.bookingRepository.findConflicts(
-      dto.resource_id,
-      startTime,
-      endTime,
-      dto.recurrence_rule,
-    );
-
-    if (conflicts.length > 0) {
-      const duration = endTime.getTime() - startTime.getTime();
-      const nextSlots = await this.bookingRepository.findNextAvailableSlots(
-        dto.resource_id,
-        startTime,
-        duration,
-        dto.recurrence_rule,
-        5,
-      );
-
-      return {
-        has_conflict: true,
-        conflicts: conflicts.map((c) => ({
-          booking_id: c.id,
-          start_time: c.start_time.toISOString(),
-          end_time: c.end_time.toISOString(),
-        })),
-        next_available_slots: nextSlots.map((slot) => ({
-          start_time: slot.start.toISOString(),
-          end_time: slot.end.toISOString(),
-        })),
-        message: 'Booking conflicts with existing meetings',
-      };
-    }
-
     try {
       const { series, instances } =
         await this.bookingRepository.createBookingSeries(
@@ -102,6 +74,37 @@ export class BookingService {
             : `Recurring booking created with ${instances.length} occurrences`,
       };
     } catch (error) {
+      if (error instanceof ConflictException) {
+        const duration = endTime.getTime() - startTime.getTime();
+        const nextSlots = await this.bookingRepository.findNextAvailableSlots(
+          dto.resource_id,
+          startTime,
+          duration,
+          dto.recurrence_rule,
+          5,
+        );
+
+        const conflicts = await this.bookingRepository.findConflicts(
+          dto.resource_id,
+          startTime,
+          endTime,
+          dto.recurrence_rule,
+        );
+
+        return {
+          has_conflict: true,
+          conflicts: conflicts.map((c) => ({
+            booking_id: c.id,
+            start_time: c.start_time.toISOString(),
+            end_time: c.end_time.toISOString(),
+          })),
+          next_available_slots: nextSlots.map((slot) => ({
+            start_time: slot.start.toISOString(),
+            end_time: slot.end.toISOString(),
+          })),
+          message: 'Booking conflicts with existing meetings',
+        };
+      }
       if (error instanceof BadRequestException) {
         throw error;
       }

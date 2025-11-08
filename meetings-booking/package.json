@@ -17,7 +17,9 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:load": "k6 run load-test/k6-load-test.js",
+    "test:spike": "k6 run load-test/k6-spike-test.js"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -26,6 +28,7 @@
     "@nestjs/typeorm": "^11.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "k6": "^0.0.0",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "rrule": "^2.8.1",

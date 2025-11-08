@@ -14,4 +14,17 @@ export const databaseConfig: TypeOrmModuleOptions = {
   logging: process.env.DB_LOGGING === 'true',
   migrations: [__dirname + '/../migrations/**/*{.ts,.js}'],
   migrationsRun: false,
+  extra: {
+    max: parseInt(process.env.DB_POOL_MAX || '500', 10),
+    min: parseInt(process.env.DB_POOL_MIN || '30', 10),
+    idleTimeoutMillis: parseInt(
+      process.env.DB_POOL_IDLE_TIMEOUT || '30000',
+      10,
+    ),
+    connectionTimeoutMillis: parseInt(
+      process.env.DB_POOL_CONNECTION_TIMEOUT || '15000',
+      10,
+    ),
+    statement_timeout: 5000,
+  },
 };

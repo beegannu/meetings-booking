@@ -1,15 +1,15 @@
-import { IsString, IsNotEmpty, IsDateString } from 'class-validator';
+import { IsString, IsNotEmpty } from 'class-validator';
 
 export class AvailabilityQueryDto {
   @IsString()
   @IsNotEmpty()
   resource_id: string;
 
-  @IsDateString()
+  @IsString()
   @IsNotEmpty()
   start_date: string;
 
-  @IsDateString()
+  @IsString()
   @IsNotEmpty()
   end_date: string;
 }
