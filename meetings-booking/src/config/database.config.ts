@@ -10,7 +10,7 @@ export const databaseConfig: TypeOrmModuleOptions = {
   password: process.env.DB_PASSWORD ?? 'postgres',
   database: process.env.DB_DATABASE ?? 'meetings-booking',
   entities: [BookingSeries, BookingInstance],
-  synchronize: process.env.DB_SYNCHRONIZE === 'true', // false in production
+  synchronize: process.env.DB_SYNCHRONIZE === 'true',
   logging: process.env.DB_LOGGING === 'true',
   migrations: [__dirname + '/../migrations/**/*{.ts,.js}'],
   migrationsRun: false,
