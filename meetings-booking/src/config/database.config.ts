@@ -15,12 +15,9 @@ export const databaseConfig: TypeOrmModuleOptions = {
   migrations: [__dirname + '/../migrations/**/*{.ts,.js}'],
   migrationsRun: false,
   extra: {
-    max: 20,
-    min: 5,
+    max: 100,
+    min: 10,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
-    acquireTimeoutMillis: 60000,
-    evict: 1000,
+    connectionTimeoutMillis: 10000,
   },
-  poolSize: 20,
 };
