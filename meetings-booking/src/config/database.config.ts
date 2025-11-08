@@ -15,7 +15,6 @@ export const databaseConfig: TypeOrmModuleOptions = {
   migrations: [__dirname + '/../migrations/**/*{.ts,.js}'],
   migrationsRun: false,
   extra: {
-    // Connection pool settings (node-postgres/pg pool options)
     max: parseInt(process.env.DB_POOL_MAX || '500', 10),
     min: parseInt(process.env.DB_POOL_MIN || '30', 10),
     idleTimeoutMillis: parseInt(
